@@ -37,19 +37,21 @@ SETTINGS
       lower half of the stick covers 0-32%, the upper half 32-100%)
     The same, with fine control around the hover:
         hover_percent=32   hover_stick_percent=50   expo_percent=50
-    Betaflight's throttle MID and EXPO, the hover left where the game has
-    it (both numbers equal):
+    The hover left where the game has it, only the feel around it shaped
+    (both numbers equal):
         hover_percent=40   hover_stick_percent=40   expo_percent=50
 
   status.txt lists the curve as it comes out: the stick every 10% and the
   throttle it gives.
 
-  The curve, as Betaflight has it: either side of the hover, with q how far
-  the stick is from the hover as a share of that side (-1 at the bottom, 1
-  at the top),
-      throttle = hover + q * ((1 - expo) + expo * q^2) * (the room to that end)
-  With hover_percent equal to hover_stick_percent this is Betaflight's
-  thr_mid / thr_expo curve exactly (checked against its formula).
+  The curve is Betaflight's own throttle curve, with the same three settings:
+  hover_stick_percent is its thr_mid, hover_percent its thr_hover and
+  expo_percent its thr_expo. Two curved segments, from the bottom of the
+  stick to the hover and from the hover to the top, flat through the hover
+  at 100% expo and straight lines at 0% (Betaflight's rc.c, initRcProcessing:
+  quadratic Bezier segments). Betaflight samples the curve at 12 points and
+  interpolates between them; this uses the smooth curve itself. The tests
+  check it against a port of Betaflight's code.
 
 
 HOW IT WORKS

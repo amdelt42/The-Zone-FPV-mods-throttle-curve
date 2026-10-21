@@ -7,15 +7,16 @@ extends Node
 ## the hover so small stick movements make small changes, and with the hover
 ## put where on the stick you want it.
 ##
-## The curve (stick s and throttle both 0..1, ends fixed: all the way down is
-## 0 and all the way up is 1):
-##     hover_stick_percent = p   where on the stick the hover sits
-##     hover_percent       = h   the throttle it gives there
-##     expo_percent        = e
-##   either side of p, with q the distance from p as a share of that side
-##   (-1 at the bottom, 1 at the top):
-##     throttle = h + (q * ((1 - e) + e * q^2)) * (h below p, 1 - h above p)
-##   With p = h this is Betaflight's thr_mid / thr_expo curve exactly.
+## The curve (stick and throttle both 0..1, ends fixed: all the way down is
+## 0 and all the way up is 1), Betaflight's own throttle curve:
+##     hover_stick_percent = Betaflight's thr_mid    where on the stick the hover sits
+##     hover_percent       = Betaflight's thr_hover  the throttle it gives there
+##     expo_percent        = Betaflight's thr_expo
+##   Two quadratic Bezier segments, (0,0) to the hover point and the hover
+##   point to (1,1), their control points moving from the straight line
+##   (expo 0) to level with the hover (expo 100) - rc.c's initRcProcessing.
+##   Betaflight samples it at 12 points and interpolates between them; this
+##   uses the smooth curve itself.
 ##
 ## How: nothing of the game is replaced. The game reads the throttle as a
 ## joypad axis (Input.get_joy_axis, through z_input.apply_config: the radio's
@@ -195,19 +196,19 @@ func bend_reading(m: Dictionary, ch: int, raw: float) -> float:
 
 
 ## The throttle (0..1) for stick position s (0..1), a hover at stick position
-## p giving throttle h, and expo e (0..1)
+## p giving throttle h, and expo e (0..1): Betaflight's throttle curve
+## (rc.c, initRcProcessing). Each segment is a quadratic Bezier whose x
+## control point is halfway along it, so x is linear in t and y follows in
+## closed form.
 static func curve(s: float, p: float, h: float, e: float) -> float:
 	s = clampf(s, 0.0, 1.0)
-	var d := s - p
-	var q := 0.0
-	var span := 0.0
-	if d < 0.0:
-		q = d / p
-		span = h
-	else:
-		q = d / (1.0 - p)
-		span = 1.0 - h
-	return clampf(h + q * ((1.0 - e) + e * q * q) * span, 0.0, 1.0)
+	if s <= p:
+		var t := s / p
+		var cy := h * 0.5 * (1.0 + e)
+		return clampf(2.0 * (1.0 - t) * t * cy + t * t * h, 0.0, 1.0)
+	var t2 := (s - p) / (1.0 - p)
+	var cy2 := 1.0 + (h - 1.0) * 0.5 * (1.0 + e)
+	return clampf((1.0 - t2) * (1.0 - t2) * h + 2.0 * (1.0 - t2) * t2 * cy2 + t2 * t2, 0.0, 1.0)
 
 
 ## True when the curve is a straight line: nothing is put in
